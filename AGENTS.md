@@ -38,6 +38,10 @@ implementing and verifying their process/PTY semantics.
 
 - `bridge.py`: consumes official camelCase lifecycle hook payloads, writes OSC 7501
   directly to its controlling PTY, and tracks owner/session/timestamp locally.
+  macOS relaunches may keep the original foreground group leader alive as a
+  parent. Only an unambiguous direct Copilot chain may inherit its ownership;
+  reject shell-mediated nested CLIs and late hooks from the waiting parent.
+  Root userPromptSubmitted can establish session identity if Start was missed.
 - `startup.py`: reports initial idle for eligible foreground zsh launches. It
   must reject nested/background agent processes and noninteractive CLI modes.
 - `copilot.zsh.in`: installer-rendered shell function; never replaces the official

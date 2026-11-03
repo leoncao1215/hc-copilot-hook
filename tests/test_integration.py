@@ -87,8 +87,9 @@ class BridgeTests(unittest.TestCase):
     def test_only_foreground_copilot_ancestor_is_allowed(self):
         processes = subprocess.CompletedProcess(
             [], 0,
-            "100 1 /bin/zsh\n200 100 /Users/example/copilot\n"
-            "210 200 /bin/bash\n220 210 /Users/example/copilot\n230 220 /bin/bash\n",
+            "100 1 100 /bin/zsh\n200 100 200 /Users/example/copilot\n"
+            "210 200 210 /bin/bash\n220 210 200 /Users/example/copilot\n"
+            "230 220 230 /bin/bash\n",
         )
         with patch.object(bridge.os, "tcgetpgrp", return_value=200), \
                 patch.object(bridge.subprocess, "run", return_value=processes):
@@ -96,6 +97,53 @@ class BridgeTests(unittest.TestCase):
                 self.assertEqual(bridge.foreground_copilot(9), 200)
             with patch.object(bridge.os, "getppid", return_value=230):
                 self.assertIsNone(bridge.foreground_copilot(9))
+
+    def test_restarted_copilot_keeps_group_owner_and_rejects_old_parent(self):
+        processes = subprocess.CompletedProcess(
+            [], 0,
+            "100 1 100 /bin/zsh\n200 100 200 /Users/example/copilot\n"
+            "250 200 200 /Users/example/copilot\n260 250 260 /bin/bash\n"
+            "210 200 210 /bin/bash\n",
+        )
+        with patch.object(bridge.os, "tcgetpgrp", return_value=200), \
+                patch.object(bridge.subprocess, "run", return_value=processes):
+            with patch.object(bridge.os, "getppid", return_value=260):
+                self.assertEqual(bridge.foreground_copilot(9), 200)
+            with patch.object(bridge.os, "getppid", return_value=210):
+                self.assertIsNone(bridge.foreground_copilot(9))
+
+    def test_handoff_rejects_background_and_ambiguous_native_children(self):
+        for branch in (
+            "250 200 250 /Users/example/copilot\n",
+            "250 200 200 /Users/example/copilot\n251 200 200 /Users/example/copilot\n",
+        ):
+            processes = subprocess.CompletedProcess(
+                [], 0, "200 100 200 /Users/example/copilot\n"
+                + branch + "260 250 260 /bin/bash\n",
+            )
+            with self.subTest(branch=branch), \
+                    patch.object(bridge.os, "tcgetpgrp", return_value=200), \
+                    patch.object(bridge.os, "getppid", return_value=260), \
+                    patch.object(bridge.subprocess, "run", return_value=processes):
+                self.assertIsNone(bridge.foreground_copilot(9))
+
+    def test_root_prompt_recovers_when_start_hook_was_missed(self):
+        state = bridge.transition(None, "userPromptSubmitted", payload())
+        self.assertIsNotNone(state)
+        self.assertEqual(state["state"], "working")
+        state = bridge.transition(state, "sessionEnd", payload(timestamp=101))
+        state = bridge.transition(
+            state, "userPromptSubmitted", payload("resumed-session", 102)
+        )
+        self.assertEqual(state["session"], "resumed-session")
+        self.assertEqual(state["state"], "working")
+        self.assertIsNone(bridge.transition(
+            state, "sessionEnd", payload(timestamp=103)
+        ))
+        self.assertIsNone(bridge.transition(
+            state, "userPromptSubmitted",
+            payload("child", 104, agentId="background-child"),
+        ))
 
     def test_two_ptys_do_not_share_state_or_output(self):
         real_open = os.open

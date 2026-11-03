@@ -31,7 +31,7 @@ def transition(previous, event, payload):
         return None
     if previous and timestamp < previous["timestamp"]:
         return None
-    if event != "sessionStart" and (
+    if event not in ("sessionStart", "userPromptSubmitted") and (
         not previous or previous["session"] != session
     ):
         return None
@@ -69,24 +69,42 @@ def transition(previous, event, payload):
 def foreground_copilot(tty_fd):
     foreground = os.tcgetpgrp(tty_fd)
     result = subprocess.run(
-        ["/bin/ps", "-axo", "pid=,ppid=,comm="],
+        ["/bin/ps", "-axo", "pid=,ppid=,pgid=,comm="],
         capture_output=True, text=True, timeout=0.15, check=True,
     )
     processes = {}
+    children = {}
     for line in result.stdout.splitlines():
-        fields = line.strip().split(None, 2)
-        if len(fields) == 3:
-            processes[int(fields[0])] = (int(fields[1]), fields[2])
+        fields = line.strip().split(None, 3)
+        if len(fields) == 4:
+            pid, parent, group = map(int, fields[:3])
+            processes[pid] = (parent, group, fields[3])
+            if group == foreground and Path(fields[3]).name == "copilot":
+                children.setdefault(parent, []).append(pid)
     pid = os.getppid()
     for _ in range(32):
-        parent, command = processes.get(pid, (0, ""))
+        parent, _, command = processes.get(pid, (0, 0, ""))
         if Path(command).name == "copilot":
-            # Nested/background CLIs inherit HC_TERMINAL_ID but do not own
-            # the foreground Copilot process group of this PTY.
-            return pid if pid == foreground else None
-        if parent <= 1 or parent == pid:
             break
+        if parent <= 1 or parent == pid:
+            return None
         pid = parent
+    else:
+        return None
+
+    # A CLI relaunch can retain its old parent and foreground process group.
+    # Accept only a single direct Copilot chain, never shell-mediated nested
+    # CLIs, background groups, siblings, or late hooks from the waiting parent.
+    branch = None
+    for _ in range(32):
+        parent, group, command = processes.get(pid, (0, 0, ""))
+        if group != foreground or Path(command).name != "copilot":
+            return None
+        if children.get(pid, []) != ([] if branch is None else [branch]):
+            return None
+        if pid == foreground:
+            return foreground
+        branch, pid = pid, parent
     return None
 
 

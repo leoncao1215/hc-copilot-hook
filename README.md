@@ -162,6 +162,10 @@ herdr-app ls
   `command copilot`、`env ... copilot`、绝对路径会绕过 shell 函数；
   后续仍可由 hooks 上报。需要环境变量时使用 `NAME=value copilot`。
 - **不是通用隔离层**：前台进程组和祖先校验用于避免误报，不是安全沙箱。
+  macOS 下 Copilot 重启可能保留旧进程为父进程，新执行进程继承其前台进程组。
+  桥接允许这种单一、直接的 Copilot 接续链，并忽略旧父进程的迟到 hook；
+  不接受经过 shell 的嵌套 CLI、后台进程组或有歧义的并行接续。
+  主会话提交消息时也可以建立/更新 session 绑定，不再要求一定先收到 `sessionStart`。
   正常后台子代理的身份字段及完成通知会被过滤；上游若不提供来源信息，
   无法对所有 notification 来源保证完美区分。
 - **失败宁可漏报**：非阻塞写入/锁、0.4 秒内部时限和 1 秒 hook 时限；
