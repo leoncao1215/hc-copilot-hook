@@ -1,0 +1,17 @@
+# Rendered by install.py. Lifecycle hooks own all subsequent agent states.
+function copilot() {
+    local -i _herdr_started=0 _herdr_exit=0
+    if [[ -n "${HC_TERMINAL_ID:-}" && -t 0 && -t 1 ]]; then
+        if command @PYTHON@ -I @STARTUP@ start "$@" >/dev/null 2>&1; then
+            _herdr_started=1
+        fi
+    fi
+    {
+        command copilot "$@" || _herdr_exit=$?
+    } always {
+        if (( _herdr_started )); then
+            command @PYTHON@ -I @STARTUP@ stop >/dev/null 2>&1 || true
+        fi
+    }
+    return $_herdr_exit
+}
