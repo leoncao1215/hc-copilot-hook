@@ -4,13 +4,17 @@ import io
 import json
 import os
 from pathlib import Path
+import sys
+import unittest
+
+if sys.platform == "win32":
+    raise unittest.SkipTest("macOS PTY tests; Windows has its own offline adapter tests")
+
 import pty
 import select
 import subprocess
-import sys
 import tempfile
 import time
-import unittest
 from unittest.mock import patch
 
 

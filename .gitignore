@@ -10,3 +10,8 @@ id_rsa*
 *.state
 state/
 backups/
+*.exe
+*.zip
+runtime/
+installation.json
+*.tmp

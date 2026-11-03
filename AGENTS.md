@@ -8,8 +8,14 @@ Read README.md before installing, changing, or diagnosing this integration.
 
 Supported/tested: macOS, zsh, Python 3 standard library, native `copilot` binary.
 Reference versions: Copilot 1.0.105, hc 0.1.17, Herdr App 0.1.12.
-Do not claim Windows/Dev Box, Linux, another shell, or Node-hosted CLI support
-without implementing and verifying their process/PTY semantics.
+Windows/Dev Box has a separate hooks-only adapter under `windows/`; read
+`windows/README.md` before deployment. Its lifecycle helper attaches the
+launching process's Windows console, not `/dev/tty`. It must not wrap copilot,
+add shell functions/aliases, modify profiles or use the macOS installer.
+Fresh startup/resume before the first message is NOT supported by the Windows
+hooks-only adapter in the tested CLI version; do not claim otherwise.
+Do not claim Linux, another shell, or Node-hosted CLI support without
+implementing and verifying their process/PTY semantics.
 
 ## Before installing
 
@@ -23,6 +29,10 @@ without implementing and verifying their process/PTY semantics.
 5. Use `python3 install.py install --zshrc "${ZDOTDIR:-$HOME}/.zshrc"` for startup
    coverage, or omit `--zshrc` for hooks only. The installer backs up edited files.
    Never overwrite an unrecognized installation just to make the command succeed.
+6. On Windows use PowerShell 7 `windows\install.ps1`. It only writes independent
+   user-level hooks and owned helper files, never profiles or command wrappers.
+   Existing Copilot processes must exit/resume to load new hooks: installing a
+   file during a turn does not retroactively activate reporting in that process.
 
 ## Architecture and invariants
 

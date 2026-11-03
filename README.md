@@ -10,8 +10,10 @@
 Copilot CLI **1.0.105**、herdr-core **0.1.17**、Herdr App **0.1.12**。
 仅使用 Python 标准库，不安装 pip/npm 依赖。
 
-目前安装器只允许 macOS。Windows/Dev Box、Linux、其他 shell，以及由
-Node 等启动器承载的 Copilot 安装方式尚未验证，不能据此宣称支持。
+Python 安装器只允许 macOS。**Windows / Dev Box** 使用独立的
+[Windows 安装器与 agent 部署手册](windows/README.md)，不复用 `/dev/tty` 实现。
+Linux、其他 shell，以及由 Node 等启动器承载的 Copilot 安装方式尚未验证，
+不能据此宣称支持。
 集成要安装在 **实际运行 Copilot 和 hc 的机器**，而不是仅显示远程 UI 的机器。
 
 原生 OSC 7501 支持可能随版本更新；安装前应重新检查官方支持。如果官方已提供完整支持，
